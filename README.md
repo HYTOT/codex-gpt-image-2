@@ -10,6 +10,7 @@ codex-gpt-image-2/
 ├── README.md
 ├── docs/
 ├── examples/
+├── tasks/
 ├── requirements.txt
 ├── .env.example
 ├── main.py
@@ -39,6 +40,8 @@ codex-gpt-image-2/
 ```env
 OPENAI_API_KEY=
 IMAGE_MODEL=gpt-image-2
+RUN_MODE=production
+OPENAI_IMAGE_QUALITY=
 DEFAULT_IMAGE_SIZE=3840x2160
 DEFAULT_IMAGE_FORMAT=png
 DEFAULT_IMAGE_COUNT=1
@@ -48,23 +51,27 @@ DEFAULT_IMAGE_COUNT=1
 
 - `IMAGE_MODEL` 只允许使用 `gpt-image-2`。
 - `OPENAI_API_KEY` 不允许写入代码或日志。
+- `RUN_MODE=test` 时，未显式指定图片质量则不发送 `quality` 参数。
+- `OPENAI_IMAGE_QUALITY` 留空时，真实调用默认使用 `high`；设置后按显式值优先。
 - 默认尺寸已统一为 4K 16:9 的 `3840x2160`。
 
 ## 环境安装与升级
+
+当前文档默认使用全局 Python 3.11 环境安装依赖。
 
 建议按以下顺序安装或升级环境：
 
 ```bash
 python -m pip install --upgrade pip
-python -m pip install --upgrade -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 当前工程依赖 OpenAI Python SDK 来承接 GPT Image 2 的参考图输入能力。
 
-## 安装依赖
+安装完成后可先验证依赖是否可用：
 
 ```bash
-pip install -r requirements.txt
+python -c "import openai; from openai import OpenAI; from dotenv import load_dotenv; print(openai.__version__)"
 ```
 
 ## 运行方式
@@ -73,10 +80,27 @@ pip install -r requirements.txt
 python main.py
 ```
 
+质量相关默认行为：
+
+- 真实调用且未设置 `OPENAI_IMAGE_QUALITY`：默认发送 `quality=high`
+- `RUN_MODE=test` 且未设置 `OPENAI_IMAGE_QUALITY`：不发送 `quality`
+- 设置 `OPENAI_IMAGE_QUALITY` 后：始终按显式值发送
+- `OPENAI_IMAGE_QUALITY=hd` 仅适用于文本生图，不适用于参考图编辑
+
 程序会优先读取：
 
 - `configs/task.json`
 - 如果不存在，则回退读取 `configs/task.example.json`
+
+`configs/task.json` 现在也可以是一个很薄的任务指针文件，例如：
+
+```json
+{
+  "task_file": "tasks/CiHuaQianQiu/task.json"
+}
+```
+
+当使用任务指针时，任务目录中的 `variables_file`、`reference_images` 与 `mask_image` 都按该任务的 `task.json` 所在目录相对解析。
 
 ## 多参考图快速开始
 
@@ -106,6 +130,14 @@ python main.py
 }
 ```
 
+任务指针示例：
+
+```json
+{
+  "task_file": "tasks/CiHuaQianQiu/task.json"
+}
+```
+
 字段说明：
 
 - `prompt_name`：提示词名称。
@@ -117,11 +149,17 @@ python main.py
 - `image_format`：输出格式，默认 `png`。
 - `image_count`：输出图片数量，默认 `1`。
 
+当使用任务指针时：
+
+- `task_file`：真实任务配置文件路径，相对于项目根目录。
+- 任务目录内的 `variables_file`、`reference_images`、`mask_image`：相对于该任务目录解析，不再要求写成项目根目录相对路径。
+
 协作建议：
 
 - `reference_images` 支持 0~N 张图片，数组顺序即上传顺序。
 - 建议将主体角色、主体风格或主构图参考放在数组第 1 位。
 - 示例配置中的 `examples/reference_images/` 仅为占位素材，用于演示路径写法与配置结构。
+- 真实需求建议使用 `tasks/<任务名>/` 单独保存 `task.json`、变量文件和参考图，避免不同任务共用临时素材。
 
 ## 输出目录说明
 

@@ -1,0 +1,13 @@
+{
+  "prompt_name": "default",
+  "prompt_version": "",
+  "variables_file": "variables.json",
+  "reference_images": [
+    "reference_images/reference_01_main.png",
+    "reference_images/reference_02_detail.png"
+  ],
+  "mask_image": "",
+  "image_size": "3840x2160",
+  "image_format": "png",
+  "image_count": 1
+}

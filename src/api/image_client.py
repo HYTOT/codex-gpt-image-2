@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 16:26:00
-@Description: 负责构造 gpt-image-2 请求并通过 OpenAI SDK 调用图片生成接口。
+@LastEditTime: 2026-05-13 00:03:00
+@Description: 负责构造 gpt-image-2 请求，并按运行模式注入图片质量参数。
 """
 
 import inspect
@@ -14,10 +14,13 @@ from typing import Any
 import openai
 from openai import OpenAI
 from openai.resources.images import Images
-from openai.types.images_response import ImagesResponse
 
 from src.config.settings import Settings
 from src.config.task_config import TaskConfig
+
+
+COMMON_QUALITY_VALUES = {"auto", "low", "medium", "high", "standard"}
+GENERATE_ONLY_QUALITY_VALUES = {"hd"}
 
 
 class ImageClientCompatibilityError(RuntimeError):
@@ -27,13 +30,23 @@ class ImageClientCompatibilityError(RuntimeError):
 def _validate_sdk_compatibility() -> None:
     """校验当前 SDK 是否具备最小所需调用能力。"""
     required_parameters = {"prompt", "model", "n", "size", "extra_body"}
-    signature = inspect.signature(Images.generate)
-    actual_parameters = set(signature.parameters.keys())
-    missing_parameters = sorted(required_parameters - actual_parameters)
-    if missing_parameters:
+    generate_signature = inspect.signature(Images.generate)
+    generate_parameters = set(generate_signature.parameters.keys())
+    missing_generate_parameters = sorted(required_parameters - generate_parameters)
+    if missing_generate_parameters:
         raise ImageClientCompatibilityError(
             "当前 OpenAI SDK 与 gpt-image-2 接口能力不匹配，请升级 SDK 或按官方文档调整。"
-            f" 缺少参数：{', '.join(missing_parameters)}"
+            f" 缺少参数：{', '.join(missing_generate_parameters)}"
+        )
+
+    edit_required_parameters = {"image", "prompt", "model", "n", "output_format"}
+    edit_signature = inspect.signature(Images.edit)
+    edit_parameters = set(edit_signature.parameters.keys())
+    missing_edit_parameters = sorted(edit_required_parameters - edit_parameters)
+    if missing_edit_parameters:
+        raise ImageClientCompatibilityError(
+            "当前 OpenAI SDK 与 gpt-image-2 编辑接口能力不匹配，请升级 SDK 或按官方文档调整。"
+            f" 缺少参数：{', '.join(missing_edit_parameters)}"
         )
 
 
@@ -63,10 +76,16 @@ def build_image_request(
         "output_format": output_format,
     }
     request_type = "generate" if task_config.mode == "generate" else "edit"
+    quality, quality_source = _resolve_request_quality(
+        settings=settings,
+        request_type=request_type,
+    )
     request_payload: dict[str, Any] = {
         "request_type": request_type,
         "body": request_body,
     }
+    if quality is not None:
+        request_body["quality"] = quality
 
     if request_type == "generate":
         request_payload["sdk_kwargs"] = {
@@ -74,23 +93,37 @@ def build_image_request(
             "prompt": final_prompt,
             "n": task_config.image_count,
             "size": task_config.image_size,
+            "quality": quality,
             "extra_body": {
                 "output_format": output_format,
             },
         }
     else:
-        request_payload["files"] = _build_edit_files(
-            reference_images=reference_image_paths,
-            mask_image=mask_image_path,
-        )
+        request_payload["sdk_kwargs"] = {
+            "model": settings.model,
+            "prompt": final_prompt,
+            "image": reference_image_paths,
+            "n": task_config.image_count,
+            "size": task_config.image_size,
+            "output_format": output_format,
+            "quality": quality,
+        }
+        if mask_image_path is not None:
+            request_payload["sdk_kwargs"]["mask"] = mask_image_path
+
+    if quality is None:
+        request_payload["sdk_kwargs"].pop("quality", None)
 
     request_snapshot = {
         "mode": task_config.mode,
         "model": settings.model,
+        "run_mode": settings.run_mode,
         "prompt": final_prompt,
         "size": task_config.image_size,
         "n": task_config.image_count,
         "output_format": output_format,
+        "quality": quality,
+        "quality_source": quality_source,
         "reference_images": reference_image_rel_paths,
         "mask_image": mask_image_rel_path,
         "sdk_version": openai.__version__,
@@ -107,13 +140,7 @@ def generate_image(settings: Settings, request_payload: dict[str, Any]) -> dict[
         if request_payload["request_type"] == "generate":
             response = client.images.generate(**request_payload["sdk_kwargs"])
         else:
-            response = client.post(
-                "/images/edits",
-                cast_to=ImagesResponse,
-                body=request_payload["body"],
-                files=request_payload["files"],
-                options={"headers": {"Content-Type": "multipart/form-data"}},
-            )
+            response = client.images.edit(**request_payload["sdk_kwargs"])
     except TypeError as exc:
         raise ImageClientCompatibilityError(
             "当前 OpenAI SDK 与 gpt-image-2 接口能力不匹配，请升级 SDK 或按官方文档调整。"
@@ -136,9 +163,29 @@ def generate_image(settings: Settings, request_payload: dict[str, Any]) -> dict[
     }
 
 
-def _build_edit_files(reference_images: list[Path], mask_image: Path | None) -> list[tuple[str, Any]]:
-    """构造多参考图编辑请求的 multipart 文件列表。"""
-    files: list[tuple[str, Any]] = [("image", image_path) for image_path in reference_images]
-    if mask_image is not None:
-        files.append(("mask", mask_image))
-    return files
+def _resolve_request_quality(settings: Settings, request_type: str) -> tuple[str | None, str]:
+    """根据运行模式与显式配置决定本次请求使用的质量参数。"""
+    if settings.image_quality is not None:
+        _validate_quality_value(settings.image_quality, request_type)
+        return settings.image_quality, "explicit"
+
+    if settings.run_mode == "test":
+        return None, "test_unchanged"
+
+    default_quality = "high"
+    _validate_quality_value(default_quality, request_type)
+    return default_quality, "default_high"
+
+
+def _validate_quality_value(quality: str, request_type: str) -> None:
+    """校验质量参数是否适用于当前请求类型。"""
+    if quality in COMMON_QUALITY_VALUES:
+        return
+
+    if quality in GENERATE_ONLY_QUALITY_VALUES:
+        if request_type == "generate":
+            return
+        raise ValueError("OPENAI_IMAGE_QUALITY=hd 仅支持生成接口，不支持参考图编辑接口。")
+
+    allowed_values = ", ".join(sorted(COMMON_QUALITY_VALUES | GENERATE_ONLY_QUALITY_VALUES))
+    raise ValueError(f"不支持的图片质量配置：{quality}。允许值：{allowed_values}")

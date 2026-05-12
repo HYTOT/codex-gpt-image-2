@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 16:26:00
-@Description: 读取环境变量与默认配置，并提供模型与密钥校验能力。
+@LastEditTime: 2026-05-13 00:03:00
+@Description: 读取环境变量与默认配置，并提供模型、运行模式与密钥校验能力。
 """
 
 import json
@@ -27,6 +27,8 @@ class Settings:
 
     api_key: str
     model: str
+    run_mode: str
+    image_quality: str | None
     default_image_size: str
     default_image_format: str
     default_image_count: int
@@ -60,6 +62,8 @@ def load_settings(project_root: Path) -> Settings:
     default_config = _load_default_config(project_root)
 
     model = os.getenv("IMAGE_MODEL", str(default_config["model"])).strip() or "gpt-image-2"
+    run_mode = (os.getenv("RUN_MODE", "").strip() or "production").lower()
+    image_quality = (os.getenv("OPENAI_IMAGE_QUALITY", "").strip() or "").lower() or None
     default_image_size = os.getenv(
         "DEFAULT_IMAGE_SIZE",
         str(default_config["default_image_size"]),
@@ -84,6 +88,8 @@ def load_settings(project_root: Path) -> Settings:
     return Settings(
         api_key=os.getenv("OPENAI_API_KEY", "").strip(),
         model=model,
+        run_mode=run_mode,
+        image_quality=image_quality,
         default_image_size=default_image_size,
         default_image_format=default_image_format,
         default_image_count=default_image_count,
