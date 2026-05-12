@@ -3,7 +3,7 @@
 @Author: Ajax
 @Date: 2026-05-12 16:26:00
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 16:26:00
+@LastEditTime: 2026-05-12 17:20:00
 @Description: 读取任务配置文件，并解析提示词、变量与参考图输入参数。
 """
 
@@ -141,6 +141,9 @@ def _resolve_project_file(
         candidate_path.relative_to(project_root_resolved)
     except ValueError as exc:
         raise ValueError(f"{field_name} 必须位于项目目录内：{relative_path}") from exc
+
+    if not candidate_path.exists() or not candidate_path.is_file():
+        raise FileNotFoundError(f"{field_name} 对应文件不存在：{relative_path}")
 
     if require_image and candidate_path.suffix.lower() not in IMAGE_SUFFIXES:
         raise ValueError(f"{field_name} 必须是图片文件：{relative_path}")

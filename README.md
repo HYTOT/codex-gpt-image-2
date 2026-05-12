@@ -8,6 +8,8 @@
 codex-gpt-image-2/
 ├── AGENTS.md
 ├── README.md
+├── docs/
+├── examples/
 ├── requirements.txt
 ├── .env.example
 ├── main.py
@@ -76,6 +78,17 @@ python main.py
 - `configs/task.json`
 - 如果不存在，则回退读取 `configs/task.example.json`
 
+## 多参考图快速开始
+
+多参考图需求仍然使用同一个入口：
+
+1. 复制一份 `configs/task.multi-reference.example.json` 或 `configs/task.multi-reference-mask.example.json` 为 `configs/task.json`
+2. 把 `reference_images` 按优先级填写为 0~N 个项目内相对路径
+3. 需要局部编辑时再填写 `mask_image`
+4. 执行 `python main.py`
+
+详细操作步骤、排查方式和协作约定见：[docs/参考图生图操作手册.md](docs/参考图生图操作手册.md)
+
 ## 任务配置说明
 
 任务配置示例：
@@ -103,6 +116,12 @@ python main.py
 - `image_size`：本次任务图片尺寸，默认 `3840x2160`。
 - `image_format`：输出格式，默认 `png`。
 - `image_count`：输出图片数量，默认 `1`。
+
+协作建议：
+
+- `reference_images` 支持 0~N 张图片，数组顺序即上传顺序。
+- 建议将主体角色、主体风格或主构图参考放在数组第 1 位。
+- 示例配置中的 `examples/reference_images/` 仅为占位素材，用于演示路径写法与配置结构。
 
 ## 输出目录说明
 

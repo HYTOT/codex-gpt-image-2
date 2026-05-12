@@ -3,7 +3,7 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 16:26:00
+@LastEditTime: 2026-05-12 17:20:00
 @Description: 编排提示词渲染、任务目录、API 调用、图片保存与 metadata 更新流程。
 """
 
@@ -35,23 +35,18 @@ from src.utils.time_utils import calculate_duration_ms, get_beijing_now
 
 def run_generation(settings: Settings, global_logger: logging.Logger) -> TaskContext:
     """执行最小图片生成主流程。"""
-    task_config = load_task_config(settings)
-    prompt_name = task_config.prompt_name
-    prompt_template_name = task_config.prompt_template_name
-
     task_context = create_task_directory(
         task_id=create_task_id(),
         project_root=settings.project_root,
         outputs_dir=settings.outputs_dir,
     )
     task_logger = setup_task_logger(task_context.logs_dir / "task.log")
-    prompt_version_name = task_config.prompt_version or "latest"
     init_task_metadata(
         task_context,
         project_root=settings.project_root,
         model=settings.model,
-        prompt_template=prompt_template_name,
-        prompt_version=prompt_version_name,
+        prompt_template="pending",
+        prompt_version="pending",
     )
 
     relative_output_dir = task_context.output_dir.relative_to(settings.project_root).as_posix()
@@ -60,15 +55,35 @@ def run_generation(settings: Settings, global_logger: logging.Logger) -> TaskCon
         global_logger,
         task_logger,
         logging.INFO,
-        "任务开始：task_id=%s model=%s prompt_template=%s prompt_version=%s output_dir=%s",
+        "任务开始：task_id=%s model=%s output_dir=%s",
         task_context.task_id,
         settings.model,
-        prompt_template_name,
-        prompt_version_name,
         relative_output_dir,
     )
 
     try:
+        task_config = load_task_config(settings)
+        prompt_name = task_config.prompt_name
+        prompt_template_name = task_config.prompt_template_name
+        prompt_version_name = task_config.prompt_version or "latest"
+        update_task_metadata(
+            task_context,
+            {
+                "prompt_template": prompt_template_name,
+                "prompt_version": prompt_version_name,
+            },
+        )
+        log_message(
+            global_logger,
+            task_logger,
+            logging.INFO,
+            "任务配置加载完成：task_config=%s prompt_template=%s prompt_version=%s reference_count=%s",
+            _to_project_relative_path(task_config.source_path, settings),
+            prompt_template_name,
+            prompt_version_name,
+            len(task_config.reference_images),
+        )
+
         prompt_index_path = settings.project_root / "configs" / "prompt_versions.json"
         prompt_version_name = task_config.prompt_version or get_latest_prompt_version(
             prompt_index_path, prompt_name
