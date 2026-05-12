@@ -1,0 +1,8 @@
+{
+  "model": "gpt-image-2",
+  "default_image_size": "3840x2160",
+  "default_image_format": "png",
+  "default_image_count": 1,
+  "outputs_dir": "outputs",
+  "logs_dir": "logs"
+}
