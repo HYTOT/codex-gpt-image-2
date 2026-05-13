@@ -4,5 +4,11 @@
     "versions": [
       "default_v1.md"
     ]
+  },
+  "city_food_map": {
+    "latest": "city_food_map_v1.md",
+    "versions": [
+      "city_food_map_v1.md"
+    ]
   }
 }
