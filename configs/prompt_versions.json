@@ -10,5 +10,11 @@
     "versions": [
       "city_food_map_v1.md"
     ]
+  },
+  "portrait_poster": {
+    "latest": "portrait_poster_v1.md",
+    "versions": [
+      "portrait_poster_v1.md"
+    ]
   }
 }

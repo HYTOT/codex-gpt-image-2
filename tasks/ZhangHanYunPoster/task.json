@@ -1,0 +1,12 @@
+{
+  "prompt_name": "portrait_poster",
+  "prompt_version": "",
+  "variables_file": "variables.json",
+  "reference_images": [
+    "reference_images/reference.jpg"
+  ],
+  "mask_image": "",
+  "image_size": "auto",
+  "image_format": "png",
+  "image_count": 1
+}
