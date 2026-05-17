@@ -1,0 +1,12 @@
+{
+  "prompt_name": "line_sticker_sheet",
+  "prompt_version": "line_sticker_sheet_v3.md",
+  "variables_file": "variables.json",
+  "reference_images": [
+    "reference_images/reference_01_main.jpg"
+  ],
+  "mask_image": "",
+  "image_size": "2048x2048",
+  "image_format": "png",
+  "image_count": 1
+}

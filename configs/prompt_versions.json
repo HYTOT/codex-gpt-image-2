@@ -16,5 +16,13 @@
     "versions": [
       "portrait_poster_v1.md"
     ]
+  },
+  "line_sticker_sheet": {
+    "latest": "line_sticker_sheet_v1.md",
+    "versions": [
+      "line_sticker_sheet_v1.md",
+      "line_sticker_sheet_v2.md",
+      "line_sticker_sheet_v3.md"
+    ]
   }
 }
