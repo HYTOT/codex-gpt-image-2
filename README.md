@@ -208,7 +208,6 @@ metadata.json
 
 - `prompt/raw_prompt.md`
 - `prompt/final_prompt.md`
-- `prompt/variables.json`
 - `api/request.json`
 - `api/response.json`
 - `logs/task.log`
@@ -218,7 +217,6 @@ metadata.json
 
 说明：
 
-- `prompt/variables.json` 在当前模式下固定写入空对象 `{}`，仅用于保持输出结构稳定
 - `metadata.json` 和 `request.json` 会记录 `prompt_source_mode=structured_markdown`、`source_task_prompt`、`source_raw_task`
 
 ## 日志与安全

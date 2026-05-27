@@ -3,7 +3,7 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-27 12:14:43
+@LastEditTime: 2026-05-27 15:27:27
 @Description: 编排结构化任务的提示词读取、API 调用与任务落盘流程。
 """
 
@@ -240,7 +240,6 @@ def _prepare_task_prompt(
     """准备原始提示词与最终提示词。"""
     raw_prompt = read_prompt_file(task_config.raw_task_file)
     write_text_file(task_context.prompt_dir / "raw_prompt.md", raw_prompt)
-    write_json_file(task_context.prompt_dir / "variables.json", {})
     final_prompt = validate_structured_task_prompt(read_prompt_file(task_config.task_prompt_file))
     write_text_file(task_context.prompt_dir / "final_prompt.md", final_prompt)
     return raw_prompt, final_prompt

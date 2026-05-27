@@ -193,7 +193,6 @@ metadata.json
 ```text
 prompt/raw_prompt.md
 prompt/final_prompt.md
-prompt/variables.json
 api/request.json
 api/response.json
 logs/task.log
@@ -206,7 +205,6 @@ metadata.json
 2. 不得删除历史生成结果。
 3. 每次任务必须有唯一 `task_id`。
 4. 任务失败时也必须保留已生成的中间文件。
-5. `prompt/variables.json` 在当前模式下固定写空对象 `{}`，仅用于保持输出结构稳定。
 
 ---
 
@@ -348,7 +346,7 @@ outputs/YYYY-MM-DD/task_id/logs/task.log
 ### generator.py
 
 1. 读取结构化任务。
-2. 落盘 `raw_prompt.md`、`final_prompt.md`、空对象 `variables.json`。
+2. 落盘 `raw_prompt.md` 与 `final_prompt.md`。
 3. 调用图片 API。
 4. 保存请求、响应、图片、日志和 metadata。
 5. 捕获异常并保留中间文件。
