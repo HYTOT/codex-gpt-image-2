@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 17:20:00
-@Description: 编排提示词渲染、任务目录、API 调用、图片保存与 metadata 更新流程。
+@LastEditTime: 2026-05-27 12:14:43
+@Description: 编排结构化任务的提示词读取、API 调用与任务落盘流程。
 """
 
 import logging
@@ -13,12 +13,7 @@ from pathlib import Path
 from src.api.image_client import build_image_request, generate_image
 from src.config.settings import Settings
 from src.config.task_config import TaskConfig, load_task_config
-from src.core.prompt_engine import (
-    get_latest_prompt_version,
-    read_prompt_file,
-    read_variables_file,
-    render_prompt_template,
-)
+from src.core.prompt_engine import read_prompt_file, validate_structured_task_prompt
 from src.core.task_manager import (
     TaskContext,
     create_task_directory,
@@ -45,8 +40,6 @@ def run_generation(settings: Settings, global_logger: logging.Logger) -> TaskCon
         task_context,
         project_root=settings.project_root,
         model=settings.model,
-        prompt_template="pending",
-        prompt_version="pending",
     )
 
     relative_output_dir = task_context.output_dir.relative_to(settings.project_root).as_posix()
@@ -63,46 +56,27 @@ def run_generation(settings: Settings, global_logger: logging.Logger) -> TaskCon
 
     try:
         task_config = load_task_config(settings)
-        prompt_name = task_config.prompt_name
-        prompt_template_name = task_config.prompt_template_name
-        prompt_version_name = task_config.prompt_version or "latest"
         update_task_metadata(
             task_context,
             {
-                "prompt_template": prompt_template_name,
-                "prompt_version": prompt_version_name,
+                "source_task_prompt": _to_project_relative_path(task_config.task_prompt_file, settings),
+                "source_raw_task": _to_project_relative_path(task_config.raw_task_file, settings),
             },
         )
         log_message(
             global_logger,
             task_logger,
             logging.INFO,
-            "任务配置加载完成：task_config=%s prompt_template=%s prompt_version=%s reference_count=%s",
+            "任务配置加载完成：task_config=%s prompt_source=%s reference_count=%s",
             _to_project_relative_path(task_config.source_path, settings),
-            prompt_template_name,
-            prompt_version_name,
+            "structured_markdown",
             len(task_config.reference_images),
         )
 
-        prompt_index_path = settings.project_root / "configs" / "prompt_versions.json"
-        prompt_version_name = task_config.prompt_version or get_latest_prompt_version(
-            prompt_index_path, prompt_name
+        _, final_prompt = _prepare_task_prompt(
+            task_context=task_context,
+            task_config=task_config,
         )
-        update_task_metadata(
-            task_context,
-            {
-                "prompt_version": prompt_version_name,
-            },
-        )
-        prompt_version_path = settings.project_root / "prompts" / "versions" / prompt_version_name
-        raw_prompt = read_prompt_file(prompt_version_path)
-        variables = read_variables_file(task_config.variables_file)
-
-        write_text_file(task_context.prompt_dir / "raw_prompt.md", raw_prompt)
-        write_json_file(task_context.prompt_dir / "variables.json", variables)
-
-        final_prompt = render_prompt_template(raw_prompt, variables)
-        write_text_file(task_context.prompt_dir / "final_prompt.md", final_prompt)
 
         reference_snapshot_files, reference_snapshot_rel_paths, mask_snapshot_file, mask_snapshot_rel_path = _snapshot_input_images(
             task_context=task_context,
@@ -128,17 +102,22 @@ def run_generation(settings: Settings, global_logger: logging.Logger) -> TaskCon
         request_snapshot["task_config_path"] = _to_project_relative_path(
             task_config.source_path, settings
         )
+        request_snapshot["prompt_source_mode"] = "structured_markdown"
+        request_snapshot["source_task_prompt"] = _to_project_relative_path(task_config.task_prompt_file, settings)
+        request_snapshot["source_raw_task"] = _to_project_relative_path(task_config.raw_task_file, settings)
         write_json_file(task_context.api_dir / "request.json", request_snapshot)
         log_message(
             global_logger,
             task_logger,
             logging.INFO,
-            "请求参数摘要：mode=%s model=%s size=%s n=%s output_format=%s reference_count=%s",
+            "请求参数摘要：mode=%s model=%s size=%s n=%s output_format=%s quality=%s quality_source=%s reference_count=%s",
             request_snapshot["mode"],
             request_snapshot["model"],
             request_snapshot["size"],
             request_snapshot["n"],
             request_snapshot["output_format"],
+            request_snapshot["quality"],
+            request_snapshot["quality_source"],
             len(reference_snapshot_rel_paths),
         )
 
@@ -251,6 +230,20 @@ def _snapshot_input_images(
         mask_file = saved_mask_path
         mask_path = saved_mask_path.relative_to(task_context.output_dir).as_posix()
     return reference_files, reference_paths, mask_file, mask_path
+
+
+def _prepare_task_prompt(
+    *,
+    task_context: TaskContext,
+    task_config: TaskConfig,
+) -> tuple[str, str]:
+    """准备原始提示词与最终提示词。"""
+    raw_prompt = read_prompt_file(task_config.raw_task_file)
+    write_text_file(task_context.prompt_dir / "raw_prompt.md", raw_prompt)
+    write_json_file(task_context.prompt_dir / "variables.json", {})
+    final_prompt = validate_structured_task_prompt(read_prompt_file(task_config.task_prompt_file))
+    write_text_file(task_context.prompt_dir / "final_prompt.md", final_prompt)
+    return raw_prompt, final_prompt
 
 
 def _to_project_relative_path(path, settings: Settings) -> str:

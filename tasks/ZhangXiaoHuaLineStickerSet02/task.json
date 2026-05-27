@@ -1,7 +1,4 @@
 {
-  "prompt_name": "line_sticker_sheet",
-  "prompt_version": "",
-  "variables_file": "variables.json",
   "reference_images": [
     "reference_images/reference_01_main.jpg"
   ],

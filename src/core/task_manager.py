@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 16:26:00
-@Description: 负责任务 ID、任务目录与 metadata 初始化和更新。
+@LastEditTime: 2026-05-27 10:54:37
+@Description: 负责任务 ID、任务目录与结构化任务 metadata 初始化和更新。
 """
 
 import uuid
@@ -74,8 +74,6 @@ def init_task_metadata(
     *,
     project_root: Path,
     model: str,
-    prompt_template: str,
-    prompt_version: str,
 ) -> dict[str, Any]:
     """初始化任务 metadata。"""
     now = format_datetime(get_beijing_now())
@@ -84,8 +82,9 @@ def init_task_metadata(
         "created_at": now,
         "updated_at": now,
         "model": model,
-        "prompt_template": prompt_template,
-        "prompt_version": prompt_version,
+        "prompt_source_mode": "structured_markdown",
+        "source_task_prompt": None,
+        "source_raw_task": None,
         "output_dir": task_context.output_dir.relative_to(project_root).as_posix(),
         "image_paths": [],
         "request_path": "api/request.json",

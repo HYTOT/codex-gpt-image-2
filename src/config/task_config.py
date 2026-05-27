@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 16:26:00
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 23:44:00
-@Description: 读取任务配置文件，支持任务指针与任务目录内资源解析。
+@LastEditTime: 2026-05-27 10:54:37
+@Description: 读取仅支持六段式结构化任务的配置文件与任务目录资源。
 """
 
 from dataclasses import dataclass
@@ -16,6 +16,13 @@ from src.utils.json_utils import read_json_file
 
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+ALLOWED_TASK_FIELDS = {
+    "reference_images",
+    "mask_image",
+    "image_size",
+    "image_format",
+    "image_count",
+}
 
 
 @dataclass(slots=True)
@@ -23,19 +30,13 @@ class TaskConfig:
     """当前任务配置。"""
 
     source_path: Path
-    prompt_name: str
-    prompt_version: str | None
-    variables_file: Path
+    raw_task_file: Path
+    task_prompt_file: Path
     reference_images: list[Path]
     mask_image: Path | None
     image_size: str
     image_format: str
     image_count: int
-
-    @property
-    def prompt_template_name(self) -> str:
-        """模板文件名。"""
-        return f"{self.prompt_name}.md"
 
     @property
     def mode(self) -> str:
@@ -48,7 +49,7 @@ class TaskConfig:
 
 
 def load_task_config(settings: Settings) -> TaskConfig:
-    """加载任务配置文件。"""
+    """加载结构化任务配置文件。"""
     entry_config_path = settings.project_root / "configs" / "task.json"
     if not entry_config_path.exists():
         entry_config_path = settings.project_root / "configs" / "task.example.json"
@@ -60,12 +61,7 @@ def load_task_config(settings: Settings) -> TaskConfig:
         project_root=settings.project_root,
         entry_config_path=entry_config_path,
     )
-
-    prompt_name = str(data.get("prompt_name", "default")).strip() or "default"
-    prompt_version = str(data.get("prompt_version", "")).strip() or None
-    variables_value = str(data.get("variables_file", "")).strip()
-    if not variables_value:
-        raise ValueError("任务配置缺少 variables_file。")
+    _validate_task_schema(data, task_path)
 
     reference_images = _resolve_image_list(
         project_root=settings.project_root,
@@ -89,24 +85,31 @@ def load_task_config(settings: Settings) -> TaskConfig:
     if mask_image is not None and not reference_images:
         raise ValueError("提供 mask_image 时，reference_images 不能为空。")
 
+    image_size = str(data.get("image_size", settings.default_image_size)).strip() or settings.default_image_size
+    image_format = str(data.get("image_format", settings.default_image_format)).strip().lower() or settings.default_image_format
+    image_count = int(data.get("image_count", settings.default_image_count))
+
     return TaskConfig(
         source_path=task_path,
-        prompt_name=prompt_name,
-        prompt_version=prompt_version,
-        variables_file=_resolve_project_file(
+        raw_task_file=_resolve_project_file(
             project_root=settings.project_root,
             base_dir=resource_base_dir,
-            relative_path=variables_value,
-            field_name="variables_file",
+            relative_path="raw_task.md",
+            field_name="raw_task.md",
+            require_image=False,
+        ),
+        task_prompt_file=_resolve_project_file(
+            project_root=settings.project_root,
+            base_dir=resource_base_dir,
+            relative_path="task_prompt.md",
+            field_name="task_prompt.md",
             require_image=False,
         ),
         reference_images=reference_images,
         mask_image=mask_image,
-        image_size=str(data.get("image_size", settings.default_image_size)).strip()
-        or settings.default_image_size,
-        image_format=str(data.get("image_format", settings.default_image_format)).strip().lower()
-        or settings.default_image_format,
-        image_count=int(data.get("image_count", settings.default_image_count)),
+        image_size=image_size,
+        image_format=image_format,
+        image_count=image_count,
     )
 
 
@@ -114,14 +117,14 @@ def _load_task_payload(
     project_root: Path,
     entry_config_path: Path,
 ) -> tuple[Path, dict[str, Any], Path]:
-    """加载任务配置，并根据配置形态确定资源解析基准目录。"""
+    """加载任务配置，并根据任务指针确定资源解析基准目录。"""
     data = read_json_file(entry_config_path)
     if not isinstance(data, dict):
         raise ValueError(f"任务配置必须是 JSON 对象：{entry_config_path.as_posix()}")
 
     task_file_value = str(data.get("task_file", "") or "").strip()
     if not task_file_value:
-        return entry_config_path, data, project_root
+        raise ValueError("configs/task.json 或 configs/task.example.json 必须包含 task_file。")
 
     task_path = _resolve_project_file(
         project_root=project_root,
@@ -186,3 +189,13 @@ def _resolve_project_file(
     if require_image and candidate_path.suffix.lower() not in IMAGE_SUFFIXES:
         raise ValueError(f"{field_name} 必须是图片文件：{relative_path}")
     return candidate_path
+
+
+def _validate_task_schema(data: dict[str, Any], task_path: Path) -> None:
+    """强校验当前任务配置只能使用结构化任务字段。"""
+    extra_fields = sorted(set(data.keys()) - ALLOWED_TASK_FIELDS)
+    if extra_fields:
+        raise ValueError(
+            f"结构化任务配置存在已弃用字段：{', '.join(extra_fields)}。"
+            f" 请迁移任务目录：{task_path.as_posix()}"
+        )

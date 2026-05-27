@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-13 00:03:00
-@Description: 负责构造 gpt-image-2 请求，并按运行模式注入图片质量参数。
+@LastEditTime: 2026-05-27 10:13:24
+@Description: 负责构造 gpt-image-2 请求，并按运行模式注入受控图片质量参数。
 """
 
 import inspect
@@ -165,12 +165,14 @@ def generate_image(settings: Settings, request_payload: dict[str, Any]) -> dict[
 
 def _resolve_request_quality(settings: Settings, request_type: str) -> tuple[str | None, str]:
     """根据运行模式与显式配置决定本次请求使用的质量参数。"""
+    if settings.run_mode == "test":
+        forced_quality = "low"
+        _validate_quality_value(forced_quality, request_type)
+        return forced_quality, "test_forced_low"
+
     if settings.image_quality is not None:
         _validate_quality_value(settings.image_quality, request_type)
         return settings.image_quality, "explicit"
-
-    if settings.run_mode == "test":
-        return None, "test_unchanged"
 
     default_quality = "high"
     _validate_quality_value(default_quality, request_type)

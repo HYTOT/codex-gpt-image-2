@@ -3,63 +3,32 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-12 15:37:14
-@Description: 负责提示词文件读取、变量读取、版本索引与模板渲染。
+@LastEditTime: 2026-05-27 12:14:43
+@Description: 负责结构化任务提示词文件读取、最小非空检查与换行标准化。
 """
 
-import re
 from pathlib import Path
-from typing import Any
-
-from src.utils.json_utils import read_json_file
 
 
-VARIABLE_PATTERN = re.compile(r"{{\s*([a-zA-Z0-9_]+)\s*}}")
-
-
-class PromptVariableError(ValueError):
-    """模板变量缺失异常。"""
+class StructuredPromptValidationError(ValueError):
+    """结构化任务提示词最小校验异常。"""
 
 
 def read_prompt_file(path: Path) -> str:
-    """读取 Markdown 提示词文件。"""
+    """读取 Markdown 提示词文件，并执行最小非空检查。"""
     if not path.exists():
         raise FileNotFoundError(f"提示词文件不存在：{path.as_posix()}")
-    return path.read_text(encoding="utf-8")
+    return _normalize_prompt_text(path.read_text(encoding="utf-8"), path.name)
 
 
-def read_variables_file(path: Path) -> dict[str, Any]:
-    """读取变量 JSON 文件。"""
-    data = read_json_file(path)
-    if not isinstance(data, dict):
-        raise ValueError(f"变量文件内容必须为 JSON 对象：{path.as_posix()}")
-    return data
+def validate_structured_task_prompt(prompt_text: str) -> str:
+    """标准化任务提示词文本，不再在运行时执行六段式结构过滤。"""
+    return _normalize_prompt_text(prompt_text, "task_prompt.md")
 
 
-def render_prompt_template(template: str, variables: dict[str, Any]) -> str:
-    """执行双花括号变量替换。"""
-    required_variables = set(VARIABLE_PATTERN.findall(template))
-    missing_variables = sorted(name for name in required_variables if name not in variables)
-    if missing_variables:
-        raise PromptVariableError(
-            f"提示词模板存在缺失变量：{', '.join(missing_variables)}"
-        )
-
-    def _replace(match: re.Match[str]) -> str:
-        variable_name = match.group(1)
-        return str(variables[variable_name])
-
-    return VARIABLE_PATTERN.sub(_replace, template)
-
-
-def get_latest_prompt_version(index_path: Path, prompt_name: str) -> str:
-    """从版本索引中获取最新提示词版本文件名。"""
-    index_data = read_json_file(index_path)
-    if prompt_name not in index_data:
-        raise KeyError(f"提示词索引中不存在名称：{prompt_name}")
-
-    prompt_entry = index_data[prompt_name]
-    latest = prompt_entry.get("latest")
-    if not latest:
-        raise ValueError(f"提示词索引缺少 latest 配置：{prompt_name}")
-    return str(latest)
+def _normalize_prompt_text(prompt_text: str, prompt_name: str) -> str:
+    """标准化换行并确保提示词文件非空。"""
+    normalized_text = prompt_text.replace("\r\n", "\n").replace("\r", "\n").strip()
+    if not normalized_text:
+        raise StructuredPromptValidationError(f"{prompt_name} 不能为空。")
+    return normalized_text + "\n"

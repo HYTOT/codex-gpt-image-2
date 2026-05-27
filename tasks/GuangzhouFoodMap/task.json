@@ -1,7 +1,4 @@
 {
-  "prompt_name": "city_food_map",
-  "prompt_version": "",
-  "variables_file": "variables.json",
   "reference_images": [],
   "mask_image": "",
   "image_size": "2048x2048",

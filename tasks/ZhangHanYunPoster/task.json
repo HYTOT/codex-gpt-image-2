@@ -1,7 +1,4 @@
 {
-  "prompt_name": "portrait_poster",
-  "prompt_version": "",
-  "variables_file": "variables.json",
   "reference_images": [
     "reference_images/reference_02.png"
   ],
