@@ -171,6 +171,20 @@ python main.py
 - `configs/task.json`
 - 若不存在，则回退读取 `configs/task.example.json`
 
+## 认证排查
+
+如果 `python main.py` 返回 `401 invalid_api_key`，先运行独立认证检查：
+
+```bash
+python -m src.api.auth_check
+```
+
+说明：
+
+- 这个检查会直接验证当前 `.env` 中的 `OPENAI_API_KEY` 是否被 OpenAI 平台接受
+- 它不依赖当前任务目录，也不走图片生成主流程
+- 若这里仍失败，问题基本可收敛为 key 本身无效、已撤销、项目不匹配，或账号没有 Platform API 权限
+
 ## 输出目录
 
 每次任务都会创建独立目录：

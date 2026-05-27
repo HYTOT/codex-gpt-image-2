@@ -3,8 +3,8 @@
 @Author: Ajax
 @Date: 2026-05-12 15:37:14
 @LastEditor: Ajax
-@LastEditTime: 2026-05-27 10:13:24
-@Description: 负责构造 gpt-image-2 请求，并按运行模式注入受控图片质量参数。
+@LastEditTime: 2026-05-27 14:38:49
+@Description: 负责构造 gpt-image-2 请求，并按运行模式注入受控图片质量参数与认证异常提示。
 """
 
 import inspect
@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any
 
 import openai
-from openai import OpenAI
+from openai import AuthenticationError, OpenAI
 from openai.resources.images import Images
 
 from src.config.settings import Settings
@@ -25,6 +25,10 @@ GENERATE_ONLY_QUALITY_VALUES = {"hd"}
 
 class ImageClientCompatibilityError(RuntimeError):
     """当前 SDK 与 gpt-image-2 请求能力不匹配时抛出。"""
+
+
+class ImageClientAuthenticationError(RuntimeError):
+    """OpenAI 认证失败时抛出更明确的中文提示。"""
 
 
 def _validate_sdk_compatibility() -> None:
@@ -141,6 +145,12 @@ def generate_image(settings: Settings, request_payload: dict[str, Any]) -> dict[
             response = client.images.generate(**request_payload["sdk_kwargs"])
         else:
             response = client.images.edit(**request_payload["sdk_kwargs"])
+    except AuthenticationError as exc:
+        raise ImageClientAuthenticationError(
+            "OpenAI 认证失败：当前 OPENAI_API_KEY 被平台返回 401 invalid_api_key。"
+            " 请确认该 key 来自 https://platform.openai.com/api-keys、未被撤销、属于当前可用项目；"
+            "如需与本仓库解耦排查，可运行 `python -m src.api.auth_check`。"
+        ) from exc
     except TypeError as exc:
         raise ImageClientCompatibilityError(
             "当前 OpenAI SDK 与 gpt-image-2 接口能力不匹配，请升级 SDK 或按官方文档调整。"
