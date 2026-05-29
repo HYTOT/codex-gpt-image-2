@@ -1,0 +1,4 @@
+interface:
+  display_name: "输出复盘"
+  short_description: "验收单次输出并给出复盘结论与下一步建议"
+  default_prompt: "Use $output-reviewer to review one output directory from this repository."

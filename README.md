@@ -237,4 +237,18 @@ python -m compileall src tests main.py
 ## 参考文档
 
 - 详细操作手册见：[docs/image_task_guide.md](docs/image_task_guide.md)
+- 认证与接口排查见：[docs/auth_and_api_troubleshooting.md](docs/auth_and_api_troubleshooting.md)
+- 输出目录验收与复盘见：[docs/output_inspection_runbook.md](docs/output_inspection_runbook.md)
+- 任务提示词写作指南见：[docs/task_prompt_authoring_guide.md](docs/task_prompt_authoring_guide.md)
+- 多参考图策略说明见：[docs/reference_image_strategy.md](docs/reference_image_strategy.md)
+- 测试与 smoke check 清单见：[docs/testing_and_smoke_checks.md](docs/testing_and_smoke_checks.md)
 - 协作与开发约定见：[AGENTS.md](AGENTS.md)
+
+## 工程内 Skills
+
+仓库内已补充 `.codex/skills/`：
+
+- `structured-task-author`：新建结构化任务目录与六段式提示词
+- `image-task-diagnoser`：诊断失败输出目录并归类根因
+- `task-prompt-refiner`：优化现有 `task_prompt.md`
+- `output-reviewer`：验收与复盘单次输出目录

@@ -1,0 +1,4 @@
+interface:
+  display_name: "提示词优化"
+  short_description: "重写现有任务提示词以提升出图稳定性与清晰度"
+  default_prompt: "Use $task-prompt-refiner to improve an existing structured task prompt in this repository."

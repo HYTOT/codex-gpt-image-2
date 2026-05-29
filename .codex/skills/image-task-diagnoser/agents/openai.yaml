@@ -1,0 +1,4 @@
+interface:
+  display_name: "任务排障诊断"
+  short_description: "诊断输出目录失败原因并给出下一步动作"
+  default_prompt: "Use $image-task-diagnoser to diagnose the latest failed image generation run in this repository."
